@@ -8,6 +8,16 @@ struct colour
   int r,g,b;
 };
 
+enum tile_types
+{
+  none,
+  queen,
+  spider,
+  beetle,
+  grasshopper,
+  ant,
+};
+
 void render_hex(SDL_Renderer* renderer, int centerX, int centerY, struct colour col)
 {
   float const PI = 3.14159265;
@@ -45,13 +55,40 @@ void render_hex_by_index(SDL_Renderer* renderer, int indexX, int indexY, struct 
 
   render_hex(renderer, width / 2 + offsetX, height / 2 + offsetY, col);
 }
+
+void choose_tile_type(SDL_Renderer* renderer, int pos, struct colour col_focused, struct colour col_unfocused)
+{
+  SDL_Rect rect;
+  rect.x = 0;
+  rect.y = height+1-height/4;
+  rect.w = width;
+  rect.h = height;
+  
+  SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
+  SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
+  SDL_RenderFillRect(renderer, &rect);
+
+  for (int i=0;i<5;++i)
+  {
+    if (i == pos)
+      render_hex(renderer, width / 8 * (i+2), height - height / 8, col_focused);
+    else
+      render_hex(renderer, width / 8 * (i+2), height - height / 8, col_unfocused);
+  }
+}
  
+#define MAX_SIZE 20
+
 int main(int argc, char ** argv)
 {
   int quit = 0;
+  int choosing_type = 0;
   int posX = 0;
   int posY = 0;
+  int type_select_pos;
   SDL_Event event;
+  
+  struct colour col;
 
   struct colour col_focused;
   col_focused.r = 100;
@@ -62,6 +99,12 @@ int main(int argc, char ** argv)
   col_unfocused.r = 50;
   col_unfocused.g = 50;
   col_unfocused.b = 50;
+
+  enum tile_types tiles[MAX_SIZE][MAX_SIZE];
+  
+  for (int x = 0; x < MAX_SIZE; ++x)
+    for (int y = 0; y < MAX_SIZE; ++y)
+      tiles[x][y] = none;
 
   SDL_Init(SDL_INIT_EVERYTHING);
          
@@ -88,19 +131,41 @@ int main(int argc, char ** argv)
         switch( event.key.keysym.sym )
         {
           case SDLK_UP:
+            if (choosing_type)
+              break;
             --posY;
             break;
         
           case SDLK_DOWN:
+            if (choosing_type)
+              break;
             ++posY;
             break;
         
           case SDLK_LEFT:
-            --posX;
+            if (choosing_type)
+            {
+              if (type_select_pos > 0)
+              --type_select_pos;
+            }
+            else
+              --posX;
             break;
        
           case SDLK_RIGHT:
-            ++posX;
+            if (choosing_type)
+            {
+              if (type_select_pos < 4)
+                ++type_select_pos;
+            }
+            else
+              ++posX;
+            break;
+          
+          case SDLK_RETURN:
+            choosing_type = 1;
+            type_select_pos = 2;
+            tiles[posX+10][posY+10] = ant;
             break;
         }
         break;
@@ -112,17 +177,22 @@ int main(int argc, char ** argv)
     SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
     
     //Clear the renderer with the draw colour
-    SDL_RenderClear(renderer);
-    
-    for (int x = -10; x < 10; x++)
-    {
-      for (int y = -10; y < 10; y++)
+    SDL_RenderClear(renderer); 
+
+    for (int x = -MAX_SIZE/2; x < MAX_SIZE/2; x++)
+      for (int y = -MAX_SIZE/2; y < MAX_SIZE/2; y++)
       {
-        render_hex_by_index(renderer,x,y,col_unfocused);
+        col.r = tiles[x+10][y+10] * 10;
+        col.g = tiles[x+10][y+10] * 10;
+        col.b = tiles[x+10][y+10] * 10;
+
+        render_hex_by_index(renderer,x,y,col);
       }
-    }
 
     render_hex_by_index(renderer,posX,posY,col_focused);
+
+    if (choosing_type)
+      choose_tile_type(renderer, type_select_pos, col_focused, col_unfocused);
 
     //Update the renderer
     SDL_RenderPresent(renderer);
