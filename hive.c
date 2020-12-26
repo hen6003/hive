@@ -41,7 +41,7 @@ void render_hex_by_index(SDL_Renderer* renderer, int indexX, int indexY, struct 
   int offsetY = indexY * 173;
 
   if ( abs(indexX) % 2 == 1 )
-    offsetY += 87;
+    offsetY += 86;
 
   render_hex(renderer, width / 2 + offsetX, height / 2 + offsetY, col);
 }
@@ -65,7 +65,7 @@ int main(int argc, char ** argv)
 
   SDL_Init(SDL_INIT_EVERYTHING);
          
-  SDL_Window* window = SDL_CreateWindow("game",
+  SDL_Window* window = SDL_CreateWindow("HIVE",
     SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1920, 1080,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
 
@@ -102,10 +102,6 @@ int main(int argc, char ** argv)
           case SDLK_RIGHT:
             ++posX;
             break;
-
-          default:
-
-          break;
         }
         break;
     }
@@ -122,12 +118,11 @@ int main(int argc, char ** argv)
     {
       for (int y = -10; y < 10; y++)
       {
-        if (x == posX && y == posY)
-          render_hex_by_index(renderer,x,y,col_focused);
-        else
-          render_hex_by_index(renderer,x,y,col_unfocused);
+        render_hex_by_index(renderer,x,y,col_unfocused);
       }
     }
+
+    render_hex_by_index(renderer,posX,posY,col_focused);
 
     //Update the renderer
     SDL_RenderPresent(renderer);
