@@ -11,7 +11,7 @@ struct colour
 enum tile_types
 {
   none,
-  queen,
+  bee,
   spider,
   beetle,
   grasshopper,
@@ -76,16 +76,47 @@ void choose_tile_type(SDL_Renderer* renderer, int pos, struct colour col_focused
       render_hex(renderer, width / 8 * (i+2), height - height / 8, col_unfocused);
   }
 }
+
+void quit_menu(SDL_Renderer* renderer, int pos,struct colour col_unfocused, struct colour col_focused)
+{
+  SDL_Rect rect;
+  rect.x = 0;
+  rect.y = height+1-height/4;
+  rect.w = width;
+  rect.h = height;
+
+  struct colour col_quit;
+  col_quit.r = 255;
+  col_quit.g = 0;
+  col_quit.b = 0;
+  
+  SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
+  SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
+  SDL_RenderFillRect(renderer, &rect);
+
+  if (pos)
+  {
+    render_hex(renderer, width / 2 - 200, height - height / 8, col_focused);
+    render_hex(renderer, width / 2 + 200, height - height / 8, col_quit);
+  }
+  else
+  {
+    render_hex(renderer, width / 2 + 200, height - height / 8, col_focused);
+    render_hex(renderer, width / 2 - 200, height - height / 8, col_unfocused);
+  }
+}
  
 #define MAX_SIZE 20
 
 int main(int argc, char ** argv)
 {
   int quit = 0;
-  int choosing_type = 0;
+  int show_type_menu = 0;
+  int show_quit_menu = 0;
   int posX = 0;
   int posY = 0;
   int type_select_pos;
+  int quit_select_pos;
   SDL_Event event;
   
   struct colour col;
@@ -101,6 +132,10 @@ int main(int argc, char ** argv)
   col_unfocused.b = 50;
 
   enum tile_types tiles[MAX_SIZE][MAX_SIZE];
+        
+  SDL_Rect rect;
+  rect.w = 50;
+  rect.h = 50;
   
   for (int x = 0; x < MAX_SIZE; ++x)
     for (int y = 0; y < MAX_SIZE; ++y)
@@ -131,41 +166,75 @@ int main(int argc, char ** argv)
         switch( event.key.keysym.sym )
         {
           case SDLK_UP:
-            if (choosing_type)
+            if (show_type_menu)
               break;
             --posY;
             break;
         
           case SDLK_DOWN:
-            if (choosing_type)
+            if (show_type_menu)
               break;
             ++posY;
             break;
         
           case SDLK_LEFT:
-            if (choosing_type)
+            if (show_type_menu)
             {
               if (type_select_pos > 0)
-              --type_select_pos;
+                --type_select_pos;
+            }
+            else if (show_quit_menu)
+            {
+              if (quit_select_pos < 1)
+                ++quit_select_pos;
             }
             else
               --posX;
             break;
        
           case SDLK_RIGHT:
-            if (choosing_type)
+            if (show_type_menu)
             {
               if (type_select_pos < 4)
                 ++type_select_pos;
+            }
+            else if (show_quit_menu)
+            {
+              if (quit_select_pos > 0)
+                --quit_select_pos;
             }
             else
               ++posX;
             break;
           
           case SDLK_RETURN:
-            choosing_type = 1;
-            type_select_pos = 2;
-            tiles[posX+10][posY+10] = ant;
+            if (show_type_menu)
+            {
+              show_type_menu = 0;
+              tiles[posX+10][posY+10] = type_select_pos + 1;
+            }
+            else if (show_quit_menu)
+            {
+              show_quit_menu = 0;
+              quit = !quit_select_pos;
+            }
+            else
+            {
+              show_type_menu = 1;
+              type_select_pos = 2;
+            }
+            break;
+
+          case SDLK_q:
+            if (show_type_menu)
+              show_type_menu = 0;
+            else if (show_quit_menu)
+              show_quit_menu = 0;
+            else
+            {
+              quit_select_pos = 1;
+              show_quit_menu = 1;
+            }
             break;
         }
         break;
@@ -182,17 +251,49 @@ int main(int argc, char ** argv)
     for (int x = -MAX_SIZE/2; x < MAX_SIZE/2; x++)
       for (int y = -MAX_SIZE/2; y < MAX_SIZE/2; y++)
       {
-        col.r = tiles[x+10][y+10] * 10;
-        col.g = tiles[x+10][y+10] * 10;
-        col.b = tiles[x+10][y+10] * 10;
+        switch (tiles[x+10][y+10])
+        {
+          case none:
+            col.r = 20;
+            col.g = 20;
+            col.b = 20;
+            break;
+          case bee:
+            col.r = 255;
+            col.g = 255;
+            col.b = 0;
+            break;
+          case spider:
+            col.r = 160;
+            col.g = 100;
+            col.b = 0;
+            break;
+          case beetle:
+            col.r = 255;
+            col.g = 0;
+            col.b = 255;
+            break;
+          case grasshopper:
+            col.r = 0;
+            col.g = 255;
+            col.b = 0;
+            break;
+          case ant:
+            col.r = 0;
+            col.g = 0;
+            col.b = 255;
+            break;
+        }
 
         render_hex_by_index(renderer,x,y,col);
       }
 
     render_hex_by_index(renderer,posX,posY,col_focused);
 
-    if (choosing_type)
+    if (show_type_menu)
       choose_tile_type(renderer, type_select_pos, col_focused, col_unfocused);
+    else if (show_quit_menu)
+      quit_menu(renderer, quit_select_pos, col_unfocused, col_focused);
 
     //Update the renderer
     SDL_RenderPresent(renderer);
