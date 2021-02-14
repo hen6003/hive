@@ -1,7 +1,30 @@
 #include <SDL.h>
+#include <SDL2/SDL_opengl.h>
+#include <GL/gl.h>
 #include <math.h>
 
+static const GLchar* vertex_shader_source =
+  "#version 120\n"
+  "attribute vec2 coord2d;\n"
+  "void main()\n"
+  "{\n"
+  "  gl_Position = vec4(coord2d, 0.0, 1.0);\n"
+  "}\n";
+
+static const GLchar* fragment_shader_source =
+  "#version 120\n"
+  "void main()\n"
+  "{\n"
+  "  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+  "}\n";
+
 int width, height;
+
+height = 1800;
+width = 1920;
+
+#define WinWidth 1920
+#define WinHeight 1800
 
 struct colour
 {
@@ -18,7 +41,16 @@ enum tile_types
   ant,
 };
 
-void render_hex(SDL_Renderer* renderer, int centerX, int centerY, struct colour col)
+void render_line(int x1, int y1, int x2, int y2, struct colour col)
+{
+  glBegin(GL_LINES);
+    glColor3i(col.r, col.g, col.b);
+    glVertex2f(oldX, oldY);
+    glVertex2f(newX, newY);
+  glEnd();
+}
+
+void render_hex(int centerX, int centerY, struct colour col)
 {
   float const PI = 3.14159265;
   const int nsides = 6;
@@ -38,14 +70,15 @@ void render_hex(SDL_Renderer* renderer, int centerX, int centerY, struct colour 
     newX = Radius * cos(angle) + centerX;
     newY = Radius * sin(angle) + centerY;
     
-    //Set the draw colour of renderer
-    SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
-
-    SDL_RenderDrawLine(renderer, oldX, oldY, newX, newY);
+    glBegin(GL_LINES);
+      glColor3f(1,0,0);
+      glVertex2f(oldX, oldY);
+      glVertex2f(newX, newY);
+    glEnd();
   }
 }
 
-void render_hex_by_index(SDL_Renderer* renderer, int indexX, int indexY, struct colour col)
+void render_hex_by_index(int indexX, int indexY, struct colour col)
 {
   int offsetX = indexX * 150;
   int offsetY = indexY * 173;
@@ -53,10 +86,10 @@ void render_hex_by_index(SDL_Renderer* renderer, int indexX, int indexY, struct 
   if ( abs(indexX) % 2 == 1 )
     offsetY += 86;
 
-  render_hex(renderer, width / 2 + offsetX, height / 2 + offsetY, col);
+  render_hex(width / 2 + offsetX, height / 2 + offsetY, col);
 }
 
-void choose_tile_type(SDL_Renderer* renderer, int pos, struct colour col_focused, struct colour col_unfocused)
+void choose_tile_type(int pos, struct colour col_focused, struct colour col_unfocused)
 {
   SDL_Rect rect;
   rect.x = 0;
@@ -64,9 +97,9 @@ void choose_tile_type(SDL_Renderer* renderer, int pos, struct colour col_focused
   rect.w = width;
   rect.h = height;
   
-  SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
-  SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
-  SDL_RenderFillRect(renderer, &rect);
+  // SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
+  // SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
+  // SDL_RenderFillRect(renderer, &rect);
 
   for (int i=0;i<5;++i)
   {
@@ -77,7 +110,7 @@ void choose_tile_type(SDL_Renderer* renderer, int pos, struct colour col_focused
   }
 }
 
-void quit_menu(SDL_Renderer* renderer, int pos,struct colour col_unfocused, struct colour col_focused)
+void quit_menu(int pos,struct colour col_unfocused, struct colour col_focused)
 {
   SDL_Rect rect;
   rect.x = 0;
@@ -90,9 +123,9 @@ void quit_menu(SDL_Renderer* renderer, int pos,struct colour col_unfocused, stru
   col_quit.g = 0;
   col_quit.b = 0;
   
-  SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
-  SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
-  SDL_RenderFillRect(renderer, &rect);
+  // SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
+  // SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
+  // SDL_RenderFillRect(renderer, &rect);
 
   if (pos)
   {
@@ -137,19 +170,41 @@ int main(int argc, char ** argv)
   rect.w = 50;
   rect.h = 50;
   
+  u32 WindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN_DESKTOP;
+
+  GLuint fragment_shader, program, vertex_shader;
+
+  /* Vertex shader */
+  vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+  glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL); 
+  glCompileShader(vertex_shader);
+  glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+  glGetShaderiv(vertex_shader, GL_INFO_LOG_LENGTH, &log_length);
+
+  /* Fragment shader */
+  fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+  glShaderSource(fragment_shader, 1, &fragment_shader_source, NULL);
+  glCompileShader(fragment_shader);
+  glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+  glGetShaderiv(fragment_shader, GL_INFO_LOG_LENGTH, &log_length);
+
+  /* Link shaders */
+  program = glCreateProgram();
+  glAttachShader(program, vertex_shader);
+  glAttachShader(program, fragment_shader);
+  glLinkProgram(program);
+  glGetProgramiv(program, GL_LINK_STATUS, &success);
+  glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_length);
+  
   for (int x = 0; x < MAX_SIZE; ++x)
     for (int y = 0; y < MAX_SIZE; ++y)
       tiles[x][y] = none;
 
   SDL_Init(SDL_INIT_EVERYTHING);
-         
-  SDL_Window* window = SDL_CreateWindow("HIVE",
-    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1920, 1080,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
 
-  //Create a renderer for the window created above, with the first display driver present
-  //and with no additional settings
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
+  SDL_Window *window = SDL_CreateWindow("HIVE", 0, 0, WinWidth, WinHeight, WindowFlags);
+  assert(window);
+  SDL_GLContext Context = SDL_GL_CreateContext(window);
  
   while (!quit)
   {
@@ -242,11 +297,11 @@ int main(int argc, char ** argv)
 
     SDL_GetRendererOutputSize(renderer, &width, &height);
 
-    //Set the draw colour of renderer to bg colour
-    SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
-    
-    //Clear the renderer with the draw colour
-    SDL_RenderClear(renderer); 
+    glViewport(0, 0, WinWidth, WinHeight);
+    glClearColor(0.2f, 0.2f, 1.2f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    SDL_GL_SwapWindow(window);
 
     for (int x = -MAX_SIZE/2; x < MAX_SIZE/2; x++)
       for (int y = -MAX_SIZE/2; y < MAX_SIZE/2; y++)
@@ -295,12 +350,8 @@ int main(int argc, char ** argv)
     else if (show_quit_menu)
       quit_menu(renderer, quit_select_pos, col_unfocused, col_focused);
 
-    //Update the renderer
-    SDL_RenderPresent(renderer);
+    SDL_GL_SwapWindow(window);
   }
-
-  //Destroy the renderer created above
-  SDL_DestroyRenderer(renderer);
   
   //Destroy the window created above
   SDL_DestroyWindow(window);
