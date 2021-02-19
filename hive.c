@@ -1,311 +1,374 @@
-#include <SDL.h>
+#include <X11/X.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xutil.h>
+#include <cairo/cairo.h>
+#include <cairo/cairo-xlib.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <math.h>
-
-int width, height;
-
-struct colour
-{
-  int r,g,b;
-};
 
 enum tile_types
 {
-  none,
-  bee,
-  spider,
-  beetle,
-  grasshopper,
-  ant,
+   none,
+   bee,
+   spider,
+   beetle,
+   grasshopper,
+   ant,
 };
 
-void render_hex(SDL_Renderer* renderer, int centerX, int centerY, struct colour col)
+enum states
 {
-  float const PI = 3.14159265;
-  const int nsides = 6;
+   menu_titlescreen,
+   selecting_tile,
+   menu_tile_type,
+   menu_quit,
+};
 
-  float angle = 0.0f;
-  float incr = 2.0 * PI / nsides;
-  int Radius = 100;
-
-  int newX = Radius * cos(angle) + centerX;
-  int newY = Radius * sin(angle) + centerY;
-  
-  for (int i=0; i<nsides; i++)
-  {
-    int oldX = newX;
-    int oldY = newY;
-    angle += incr;
-    newX = Radius * cos(angle) + centerX;
-    newY = Radius * sin(angle) + centerY;
-    
-    //Set the draw colour of renderer
-    SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
-
-    SDL_RenderDrawLine(renderer, oldX, oldY, newX, newY);
-  }
-}
-
-void render_hex_by_index(SDL_Renderer* renderer, int indexX, int indexY, struct colour col)
+struct colour 
 {
-  int offsetX = indexX * 150;
-  int offsetY = indexY * 173;
+   double r,g,b;
+};
 
-  if ( abs(indexX) % 2 == 1 )
-    offsetY += 86;
+int width, height, radius;
 
-  render_hex(renderer, width / 2 + offsetX, height / 2 + offsetY, col);
-}
-
-void choose_tile_type(SDL_Renderer* renderer, int pos, struct colour col_focused, struct colour col_unfocused)
+int cairo_check_event(cairo_surface_t *sfc, int block)
 {
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = height+1-height/4;
-  rect.w = width;
-  rect.h = height;
-  
-  SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
-  SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
-  SDL_RenderFillRect(renderer, &rect);
+   char keybuf[8];
+   KeySym key;
+   XEvent e;
 
-  for (int i=0;i<5;++i)
-  {
-    if (i == pos)
-      render_hex(renderer, width / 8 * (i+2), height - height / 8, col_focused);
-    else
-      render_hex(renderer, width / 8 * (i+2), height - height / 8, col_unfocused);
-  }
-}
+   for (;;)
+   {
+      if (block || XPending(cairo_xlib_surface_get_display(sfc)))
+         XNextEvent(cairo_xlib_surface_get_display(sfc), &e);
+      else 
+         return 0;
 
-void quit_menu(SDL_Renderer* renderer, int pos,struct colour col_unfocused, struct colour col_focused)
-{
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = height+1-height/4;
-  rect.w = width;
-  rect.h = height;
-
-  struct colour col_quit;
-  col_quit.r = 255;
-  col_quit.g = 0;
-  col_quit.b = 0;
-  
-  SDL_RenderDrawLine(renderer, 0, height-height/4, width, height-height/4);
-  SDL_SetRenderDrawColor(renderer, 20, 20, 20, 100);
-  SDL_RenderFillRect(renderer, &rect);
-
-  if (pos)
-  {
-    render_hex(renderer, width / 2 - 200, height - height / 8, col_focused);
-    render_hex(renderer, width / 2 + 200, height - height / 8, col_quit);
-  }
-  else
-  {
-    render_hex(renderer, width / 2 + 200, height - height / 8, col_focused);
-    render_hex(renderer, width / 2 - 200, height - height / 8, col_unfocused);
-  }
-}
- 
-#define MAX_SIZE 20
-
-int main(int argc, char ** argv)
-{
-  int quit = 0;
-  int show_type_menu = 0;
-  int show_quit_menu = 0;
-  int posX = 0;
-  int posY = 0;
-  int type_select_pos;
-  int quit_select_pos;
-  SDL_Event event;
-  
-  struct colour col;
-
-  struct colour col_focused;
-  col_focused.r = 100;
-  col_focused.g = 50;
-  col_focused.b = 100;
-
-  struct colour col_unfocused;
-  col_unfocused.r = 50;
-  col_unfocused.g = 50;
-  col_unfocused.b = 50;
-
-  enum tile_types tiles[MAX_SIZE][MAX_SIZE];
-        
-  SDL_Rect rect;
-  rect.w = 50;
-  rect.h = 50;
-  
-  for (int x = 0; x < MAX_SIZE; ++x)
-    for (int y = 0; y < MAX_SIZE; ++y)
-      tiles[x][y] = none;
-
-  SDL_Init(SDL_INIT_EVERYTHING);
-         
-  SDL_Window* window = SDL_CreateWindow("HIVE",
-    SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1920, 1080,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
-
-  //Create a renderer for the window created above, with the first display driver present
-  //and with no additional settings
-  SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
- 
-  while (!quit)
-  {
-    SDL_WaitEvent(&event);
-                   
-    switch (event.type)
-    {
-      case SDL_QUIT:
-        quit = 1;
-        break;
-      
-      case SDL_KEYDOWN:
-        //Select surfaces based on key press
-        switch( event.key.keysym.sym )
-        {
-          case SDLK_UP:
-            if (show_type_menu)
-              break;
-            --posY;
-            break;
-        
-          case SDLK_DOWN:
-            if (show_type_menu)
-              break;
-            ++posY;
-            break;
-        
-          case SDLK_LEFT:
-            if (show_type_menu)
-            {
-              if (type_select_pos > 0)
-                --type_select_pos;
-            }
-            else if (show_quit_menu)
-            {
-              if (quit_select_pos < 1)
-                ++quit_select_pos;
-            }
-            else
-              --posX;
-            break;
-       
-          case SDLK_RIGHT:
-            if (show_type_menu)
-            {
-              if (type_select_pos < 4)
-                ++type_select_pos;
-            }
-            else if (show_quit_menu)
-            {
-              if (quit_select_pos > 0)
-                --quit_select_pos;
-            }
-            else
-              ++posX;
-            break;
-          
-          case SDLK_RETURN:
-            if (show_type_menu)
-            {
-              show_type_menu = 0;
-              tiles[posX+10][posY+10] = type_select_pos + 1;
-            }
-            else if (show_quit_menu)
-            {
-              show_quit_menu = 0;
-              quit = !quit_select_pos;
-            }
-            else
-            {
-              show_type_menu = 1;
-              type_select_pos = 2;
-            }
-            break;
-
-          case SDLK_q:
-            if (show_type_menu)
-              show_type_menu = 0;
-            else if (show_quit_menu)
-              show_quit_menu = 0;
-            else
-            {
-              quit_select_pos = 1;
-              show_quit_menu = 1;
-            }
-            break;
-        }
-        break;
-    }
-
-    SDL_GetRendererOutputSize(renderer, &width, &height);
-
-    //Set the draw colour of renderer to bg colour
-    SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
-    
-    //Clear the renderer with the draw colour
-    SDL_RenderClear(renderer); 
-
-    for (int x = -MAX_SIZE/2; x < MAX_SIZE/2; x++)
-      for (int y = -MAX_SIZE/2; y < MAX_SIZE/2; y++)
+      switch (e.type)
       {
-        switch (tiles[x+10][y+10])
-        {
-          case none:
-            col.r = 20;
-            col.g = 20;
-            col.b = 20;
-            break;
-          case bee:
-            col.r = 255;
-            col.g = 255;
-            col.b = 0;
-            break;
-          case spider:
-            col.r = 160;
-            col.g = 100;
-            col.b = 0;
-            break;
-          case beetle:
-            col.r = 255;
-            col.g = 0;
-            col.b = 255;
-            break;
-          case grasshopper:
-            col.r = 0;
-            col.g = 255;
-            col.b = 0;
-            break;
-          case ant:
-            col.r = 0;
-            col.g = 0;
-            col.b = 255;
-            break;
-        }
+         case ButtonPress:
+            return -e.xbutton.button;
+         case KeyPress:
+            XLookupString(&e.xkey, keybuf, sizeof(keybuf), &key, NULL);
+            return key;
+         // default:
+         //    fprintf(stderr, "Dropping unhandled XEevent.type = %d.\n", e.type);
+      }
+   }
+}
 
-        render_hex_by_index(renderer,x,y,col);
+// static void fullscreen(Display* dpy, Window win)
+// {
+//    Atom atoms[2] = { XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False), None };
+//    XChangeProperty(dpy, win, XInternAtom(dpy, "_NET_WM_STATE", False),
+//                   XA_ATOM, 32, PropModeReplace, (unsigned char*) atoms, 1);
+// }
+
+cairo_surface_t *cairo_create_x11_surface(int *x, int *y)
+{
+   Display *dsp;
+   Drawable da;
+   Screen *scr;
+   int screen;
+   cairo_surface_t *sfc;
+
+   if ((dsp = XOpenDisplay(NULL)) == NULL)
+      exit(1);
+   screen = DefaultScreen(dsp);
+   scr = DefaultScreenOfDisplay(dsp);
+   if (!*x || !*y)
+   {
+      *x = WidthOfScreen(scr), *y = HeightOfScreen(scr);
+      *x = 1500;
+      *y = 1000;
+      da = XCreateSimpleWindow(dsp, DefaultRootWindow(dsp), 0, 0, *x, *y, 0, 0, 0);
+      // fullscreen (dsp, da);
+   }
+   else
+      da = XCreateSimpleWindow(dsp, DefaultRootWindow(dsp), 0, 0, *x, *y, 0, 0, 0);
+   XSelectInput(dsp, da, ButtonPressMask | KeyPressMask);
+   XMapWindow(dsp, da);
+
+   sfc = cairo_xlib_surface_create(dsp, da, DefaultVisual(dsp, screen), *x, *y);
+   cairo_xlib_surface_set_size(sfc, *x, *y);
+
+   return sfc;
+}
+
+
+/*! Destroy cairo Xlib surface and close X connection.
+ */
+void cairo_close_x11_surface(cairo_surface_t *sfc)
+{
+   Display *dsp = cairo_xlib_surface_get_display(sfc);
+
+   cairo_surface_destroy(sfc);
+   XCloseDisplay(dsp);
+}
+
+void render_hex(cairo_t *ctx, int centerX, int centerY, int radius)
+{
+   const int nsides = 6;
+   float angle = 0.0f;
+   float incr = 2.0 * M_PI / nsides;
+
+   int newX = radius * cos(angle) + centerX;
+   int newY = radius * sin(angle) + centerY;
+
+   cairo_move_to(ctx, newX, newY);
+
+   for (int i = 0; i < nsides+1; i++) {
+      angle += incr;
+      newX = radius * cos(angle) + centerX;
+      newY = radius * sin(angle) + centerY;
+     
+      cairo_line_to(ctx, newX, newY);
+   }
+}
+
+void render_hex_by_index(cairo_t *ctx, int indexX, int indexY)
+{
+   int offsetX = indexX * 150;
+   int offsetY = indexY * 173;
+   // int offsetX = indexX * (radius + radius/2);
+   // int offsetY = indexY * (radius/4*3-radius/(radius/2));
+   
+   if ( abs(indexX) % 2 == 1 )
+      offsetY += 86;
+   
+   render_hex(ctx, width / 2 + offsetX, height / 2 + offsetY, radius);
+}
+
+void render_menu_bg(cairo_t *ctx)
+{
+   cairo_rectangle(ctx, 0, height - height / 4, width, height);
+   cairo_set_source_rgb(ctx, 0.8, 0.8, 0.8);
+   cairo_fill_preserve(ctx);
+   cairo_stroke(ctx);
+
+   cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
+   cairo_move_to(ctx, 0, height - height / 4);
+   cairo_line_to(ctx, width, height - height / 4);
+   cairo_stroke(ctx);
+   
+   cairo_move_to(ctx, 0, height - height / 4);
+}
+
+void render_menu_hex(cairo_t *ctx, int amount, unsigned int selected, struct colour *colours)
+{
+   int gap = radius + 10;
+   int center_screen = (width / 2) - ((amount-1) * gap);
+
+   for (int i = 0; i < amount; i++)
+   {
+      render_hex(ctx, center_screen + (i * gap * 2), height - height / 8, radius);
+
+      struct colour current_colour = colours[i];
+      cairo_set_source_rgb(ctx, current_colour.r, current_colour.g, current_colour.b);
+      cairo_fill_preserve(ctx);
+
+      if (i == selected)
+         cairo_set_source_rgb(ctx, 0.3, 0.3, 0.3);
+      else
+         cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
+      cairo_stroke(ctx);
+   }
+}
+
+int main(int argc, char **argv)
+{
+   cairo_surface_t *sfc;
+   cairo_t *ctx;
+   int x, y;
+   struct timespec ts = {0, 5000000};
+   int MAX_SIZE = 20;
+   enum tile_types tiles[MAX_SIZE][MAX_SIZE];
+   enum states cur_state = selecting_tile;
+   int running;
+   int cur_X, cur_Y;
+   unsigned int cur_menu_pos, max_menu_pos;
+   radius = 100;
+   struct colour menu_hex_colours[5];
+   struct colour colour_none;
+   struct colour colour_bee;
+   struct colour colour_spider;
+   struct colour colour_beetle;
+   struct colour colour_grasshopper;
+   struct colour colour_ant;
+
+   struct colour colour_current_hex;
+
+   colour_none.r = colour_none.g = colour_none.b = 0.9;
+   colour_bee.r = colour_bee.g = 1;
+   colour_bee.b = 0;
+   colour_spider.r = 0.7;
+   colour_spider.g = 0.5;
+   colour_spider.b = 0;
+   colour_beetle.r = colour_beetle.b = 1;
+   colour_beetle.g = 0;
+   colour_grasshopper.r = colour_grasshopper.b = 0;
+   colour_grasshopper.g = 1;
+   colour_ant.r = colour_ant.g = 0;
+   colour_ant.b = 1;
+
+   cur_X = cur_Y = 0;
+   x = y = 0;
+   sfc = cairo_create_x11_surface(&x, &y);
+   ctx = cairo_create(sfc);
+   width = x;
+   height = y;
+
+   for (int x = 0; x < MAX_SIZE; ++x)
+      for (int y = 0; y < MAX_SIZE; ++y)
+         tiles[x][y] = none;
+
+   for (running = 1; running;)
+   {
+      cairo_push_group(ctx);
+      cairo_set_line_width(ctx, 5);
+
+      for (int x = 0; x < MAX_SIZE; ++x)
+         for (int y = 0; y < MAX_SIZE; ++y)
+         {
+            switch (tiles[x][y])
+            {
+               case none:
+                  colour_current_hex = colour_none;
+                  break;
+               case bee:
+                  colour_current_hex = colour_bee;
+                  break;
+               case spider:
+                  colour_current_hex = colour_spider;
+                  break;
+               case beetle:
+                  colour_current_hex = colour_beetle;
+                  break;
+               case grasshopper:
+                  colour_current_hex = colour_grasshopper;
+                  break;
+               case ant:
+                  colour_current_hex = colour_ant;
+                  break;
+            }
+
+            render_hex_by_index(ctx, x-MAX_SIZE/2, y-MAX_SIZE/2);
+            cairo_set_source_rgb(ctx, colour_current_hex.r, colour_current_hex.g, colour_current_hex.b);
+            cairo_fill_preserve(ctx);
+            cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
+            cairo_stroke(ctx);
+         }
+      render_hex_by_index(ctx, cur_X, cur_Y);
+      cairo_set_source_rgb(ctx, 0, 0, 0.7);
+      cairo_set_line_width(ctx, 7);
+      cairo_stroke(ctx);
+      cairo_set_line_width(ctx, 5);
+
+      // switch (cur_state)
+      // {
+      //    case menu_tile_type:
+      //    case menu_quit:
+      //    case menu_titlescreen:
+      //       render_menu_bg(ctx);
+      //       render_menu_hex(ctx, max_menu_pos, cur_menu_pos);
+      //       break;
+         
+      //    case selecting_tile: // here to make gcc shut up
+      //       break;
+      // }
+
+      if (cur_state != selecting_tile)
+      {
+         render_menu_bg(ctx);
+         render_menu_hex(ctx, max_menu_pos, cur_menu_pos, menu_hex_colours);
       }
 
-    render_hex_by_index(renderer,posX,posY,col_focused);
+      cairo_pop_group_to_source(ctx);
+      cairo_paint(ctx);
+      cairo_surface_flush(sfc);
 
-    if (show_type_menu)
-      choose_tile_type(renderer, type_select_pos, col_focused, col_unfocused);
-    else if (show_quit_menu)
-      quit_menu(renderer, quit_select_pos, col_unfocused, col_focused);
+      int key = cairo_check_event(sfc, 0);
+      switch (key)
+      {
+         case 0xff51:
+            if (cur_state != selecting_tile)
+            {
+               if (cur_menu_pos-1 == -1)
+                  break;
+               cur_menu_pos--;
+            }
+            else
+               cur_X--;
+            break;
 
-    //Update the renderer
-    SDL_RenderPresent(renderer);
-  }
+         case 0xff52:
+            cur_Y--;
+            break;
 
-  //Destroy the renderer created above
-  SDL_DestroyRenderer(renderer);
-  
-  //Destroy the window created above
-  SDL_DestroyWindow(window);
-             
-  SDL_Quit();
-                 
-  return 0;
+         case 0xff53:
+            if (cur_state != selecting_tile)
+            {
+               if (cur_menu_pos+1 == max_menu_pos)
+                  break;
+               cur_menu_pos++;
+            }
+            else
+               cur_X++;
+            break;
+
+         case 0xff54:
+            cur_Y++;
+            break;
+
+         case 0xff0d:
+            if (cur_state == menu_tile_type)
+            {
+               tiles[cur_X+MAX_SIZE/2][cur_Y+MAX_SIZE/2] = cur_menu_pos+1;
+               cur_state = selecting_tile;
+            }
+            else if (cur_state == menu_quit)
+            {
+               if (cur_menu_pos)
+                  running = 0;
+               else
+                  cur_state = selecting_tile;
+            }
+            else
+            {
+               cur_menu_pos = 2;
+               max_menu_pos = 5;
+               menu_hex_colours[0] = colour_bee;
+               menu_hex_colours[1] = colour_spider;
+               menu_hex_colours[2] = colour_beetle;
+               menu_hex_colours[3] = colour_grasshopper;
+               menu_hex_colours[4] = colour_ant;
+               cur_state = menu_tile_type;
+            }
+            break;
+
+         case 0xff1b:   // Esc
+            cur_menu_pos = 0;
+            max_menu_pos = 2;
+            if (cur_state == menu_tile_type || cur_state == menu_quit)
+               cur_state = selecting_tile;
+            else
+            {
+               cur_state = menu_quit;
+               menu_hex_colours[0].r = menu_hex_colours[0].g = menu_hex_colours[0].b = 0.7;
+               menu_hex_colours[1].r = 1;
+               menu_hex_colours[1].g = menu_hex_colours[1].g = 0;
+            }
+            break;
+      }
+      nanosleep(&ts, NULL);
+   }
+
+   cairo_destroy(ctx);
+   cairo_close_x11_surface(sfc);
+
+   return 0;
 }
