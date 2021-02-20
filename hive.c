@@ -268,19 +268,6 @@ int main(int argc, char **argv)
       cairo_stroke(ctx);
       cairo_set_line_width(ctx, 5);
 
-      // switch (cur_state)
-      // {
-      //    case menu_tile_type:
-      //    case menu_quit:
-      //    case menu_titlescreen:
-      //       render_menu_bg(ctx);
-      //       render_menu_hex(ctx, max_menu_pos, cur_menu_pos);
-      //       break;
-         
-      //    case selecting_tile: // here to make gcc shut up
-      //       break;
-      // }
-
       if (cur_state != selecting_tile)
       {
          render_menu_bg(ctx);
