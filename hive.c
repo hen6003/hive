@@ -33,31 +33,68 @@ struct colour
    double r,g,b;
 };
 
-int width, height, radius;
+struct event
+{
+   int type, x, y, press;
+};
 
-int cairo_check_event(cairo_surface_t *sfc, int block)
+int width, height, radius;
+int camera_X, camera_Y;
+
+struct event cairo_check_event(cairo_surface_t *sfc, int block)
 {
    char keybuf[8];
    KeySym key;
    XEvent e;
+   Display *dsp;
+   struct event r_e;
+   int mouse_X, mouse_Y;
+   
+   unsigned m;
+   Window w, r;
+   int i;
+
+   dsp = cairo_xlib_surface_get_display(sfc);
 
    for (;;)
    {
-      if (block || XPending(cairo_xlib_surface_get_display(sfc)))
-         XNextEvent(cairo_xlib_surface_get_display(sfc), &e);
+      if (block || XPending(dsp))
+         XNextEvent(dsp, &e);
       else 
-         return 0;
+         r_e.type = 0;
 
       switch (e.type)
       {
          case ButtonPress:
-            return -e.xbutton.button;
+            r_e.type = -e.xbutton.button;
+            r_e.x = e.xbutton.x;
+            r_e.y = e.xbutton.y;
+            r_e.press = 1;
+            // printf("%d\n", -e.xbutton.button);
+            break;
+         
+         case ButtonRelease:
+            r_e.type = -e.xbutton.button;
+            r_e.x = e.xbutton.x;
+            r_e.y = e.xbutton.y;
+            r_e.press = 0;
+            break;
+
          case KeyPress:
             XLookupString(&e.xkey, keybuf, sizeof(keybuf), &key, NULL);
-            return key;
-         // default:
-         //    fprintf(stderr, "Dropping unhandled XEevent.type = %d.\n", e.type);
+            r_e.type = key;
+            r_e.press = 1;
+         default:
+            XQueryPointer(dsp, cairo_xlib_surface_get_drawable(sfc), &r,
+               &w, &i, &i, &mouse_X, &mouse_Y, &m);
+
+            // printf("%d x %d\n", mouse_X, mouse_Y);
+            
+            r_e.x = mouse_X;
+            r_e.y = mouse_Y;
       }
+
+      return r_e;
    }
 }
 
@@ -90,7 +127,7 @@ cairo_surface_t *cairo_create_x11_surface(int *x, int *y)
    }
    else
       da = XCreateSimpleWindow(dsp, DefaultRootWindow(dsp), 0, 0, *x, *y, 0, 0, 0);
-   XSelectInput(dsp, da, ButtonPressMask | KeyPressMask);
+   XSelectInput(dsp, da, ButtonPressMask | ButtonReleaseMask | KeyPressMask);
    XMapWindow(dsp, da);
 
    sfc = cairo_xlib_surface_create(dsp, da, DefaultVisual(dsp, screen), *x, *y);
@@ -99,9 +136,6 @@ cairo_surface_t *cairo_create_x11_surface(int *x, int *y)
    return sfc;
 }
 
-
-/*! Destroy cairo Xlib surface and close X connection.
- */
 void cairo_close_x11_surface(cairo_surface_t *sfc)
 {
    Display *dsp = cairo_xlib_surface_get_display(sfc);
@@ -140,7 +174,7 @@ void render_hex_by_index(cairo_t *ctx, int indexX, int indexY)
    if ( abs(indexX) % 2 == 1 )
       offsetY += 86;
    
-   render_hex(ctx, width / 2 + offsetX, height / 2 + offsetY, radius);
+   render_hex(ctx, width / 2 + offsetX + camera_X, height / 2 + offsetY + camera_Y, radius);
 }
 
 void render_menu_bg(cairo_t *ctx)
@@ -190,6 +224,9 @@ int main(int argc, char **argv)
    enum states cur_state = selecting_tile;
    int running;
    int cur_X, cur_Y;
+   int mouse_X, mouse_Y;
+   int moving_camera;
+   camera_X = camera_Y = mouse_X = mouse_Y = moving_camera = 0;
    unsigned int cur_menu_pos, max_menu_pos;
    radius = 100;
    struct colour menu_hex_colours[5];
@@ -199,7 +236,6 @@ int main(int argc, char **argv)
    struct colour colour_beetle;
    struct colour colour_grasshopper;
    struct colour colour_ant;
-
    struct colour colour_current_hex;
 
    colour_none.r = colour_none.g = colour_none.b = 0.9;
@@ -278,8 +314,8 @@ int main(int argc, char **argv)
       cairo_paint(ctx);
       cairo_surface_flush(sfc);
 
-      int key = cairo_check_event(sfc, 0);
-      switch (key)
+      struct event e = cairo_check_event(sfc, 0);
+      switch (e.type)
       {
          case 0xff51:
             if (cur_state != selecting_tile)
@@ -350,7 +386,23 @@ int main(int argc, char **argv)
                menu_hex_colours[1].g = menu_hex_colours[1].g = 0;
             }
             break;
+
+         case -3:   // right mouse button
+            moving_camera = e.press;
+            mouse_X = e.x;
+            mouse_Y = e.y;
+            break;
       }
+
+      if (moving_camera)
+      {
+         int change_X = mouse_X - e.x;
+         int change_Y = mouse_Y - e.y;
+         printf("x: %d\ny: %d\n", change_X, change_Y);
+         camera_X += change_X / 50;
+         camera_Y += change_Y / 50;
+      }
+   
       nanosleep(&ts, NULL);
    }
 
