@@ -221,7 +221,7 @@ int main(int argc, char **argv)
    struct timespec ts = {0, 5000000};
    int MAX_SIZE = 20;
    enum tile_types tiles[MAX_SIZE][MAX_SIZE];
-   enum states cur_state = selecting_tile;
+   enum states cur_state = menu_tile_type;
    int running;
    int cur_X, cur_Y;
    int mouse_X, mouse_Y;
@@ -251,6 +251,14 @@ int main(int argc, char **argv)
    colour_grasshopper.g = 1;
    colour_ant.r = colour_ant.g = 0;
    colour_ant.b = 1;
+   
+   cur_menu_pos = 2;
+   max_menu_pos = 5;
+   menu_hex_colours[0] = colour_bee;
+   menu_hex_colours[1] = colour_spider;
+   menu_hex_colours[2] = colour_beetle;
+   menu_hex_colours[3] = colour_grasshopper;
+   menu_hex_colours[4] = colour_ant;
 
    cur_X = cur_Y = 0;
    x = y = 0;
@@ -259,7 +267,7 @@ int main(int argc, char **argv)
    width = x;
    height = y;
 
-   cairo_select_font_face(ctx,
+   cairo_select_font_face (ctx,
       "monospace",
       CAIRO_FONT_SLANT_NORMAL,
       CAIRO_FONT_WEIGHT_NORMAL);
@@ -318,7 +326,7 @@ int main(int argc, char **argv)
          render_menu_hex(ctx, max_menu_pos, cur_menu_pos, menu_hex_colours);
       }
 
-      sprintf(debug_text, "%d x %d", camera_X, camera_Y);
+      sprintf(debug_text, "%d x %d", cur_X, cur_Y);
       cairo_move_to(ctx, 2, 10);
       cairo_set_source_rgb(ctx, 1, 0, 0);
       cairo_show_text(ctx, debug_text);
@@ -326,8 +334,6 @@ int main(int argc, char **argv)
       cairo_pop_group_to_source(ctx);
       cairo_paint(ctx);
       cairo_surface_flush(sfc);
-
-      // end of render code, now key/mouse events
 
       struct event e = cairo_check_event(sfc, 0);
       switch (e.type)
@@ -344,6 +350,8 @@ int main(int argc, char **argv)
             break;
 
          case 0xff52:
+            if (cur_state != selecting_tile)
+               break;
             cur_Y--;
             break;
 
@@ -359,6 +367,8 @@ int main(int argc, char **argv)
             break;
 
          case 0xff54:
+            if (cur_state != selecting_tile)
+               break;
             cur_Y++;
             break;
 
@@ -377,6 +387,9 @@ int main(int argc, char **argv)
             }
             else
             {
+               if (tiles[cur_X+MAX_SIZE/2][cur_Y+MAX_SIZE/2] != none)
+                  break;
+                  
                cur_menu_pos = 2;
                max_menu_pos = 5;
                menu_hex_colours[0] = colour_bee;
