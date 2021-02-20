@@ -226,6 +226,7 @@ int main(int argc, char **argv)
    int cur_X, cur_Y;
    int mouse_X, mouse_Y;
    int moving_camera;
+   char debug_text[100];
    camera_X = camera_Y = mouse_X = mouse_Y = moving_camera = 0;
    unsigned int cur_menu_pos, max_menu_pos;
    radius = 100;
@@ -258,6 +259,11 @@ int main(int argc, char **argv)
    width = x;
    height = y;
 
+   cairo_select_font_face(ctx,
+      "monospace",
+      CAIRO_FONT_SLANT_NORMAL,
+      CAIRO_FONT_WEIGHT_NORMAL);
+
    for (int x = 0; x < MAX_SIZE; ++x)
       for (int y = 0; y < MAX_SIZE; ++y)
          tiles[x][y] = none;
@@ -266,6 +272,8 @@ int main(int argc, char **argv)
    {
       cairo_push_group(ctx);
       cairo_set_line_width(ctx, 5);
+      cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
+      cairo_paint(ctx);
 
       for (int x = 0; x < MAX_SIZE; ++x)
          for (int y = 0; y < MAX_SIZE; ++y)
@@ -310,9 +318,16 @@ int main(int argc, char **argv)
          render_menu_hex(ctx, max_menu_pos, cur_menu_pos, menu_hex_colours);
       }
 
+      sprintf(debug_text, "%d x %d", camera_X, camera_Y);
+      cairo_move_to(ctx, 2, 10);
+      cairo_set_source_rgb(ctx, 1, 0, 0);
+      cairo_show_text(ctx, debug_text);
+
       cairo_pop_group_to_source(ctx);
       cairo_paint(ctx);
       cairo_surface_flush(sfc);
+
+      // end of render code, now key/mouse events
 
       struct event e = cairo_check_event(sfc, 0);
       switch (e.type)
@@ -392,13 +407,16 @@ int main(int argc, char **argv)
             mouse_X = e.x;
             mouse_Y = e.y;
             break;
+         
+         case 0x72:
+            camera_X = camera_Y = moving_camera = 0;
+            break;
       }
 
       if (moving_camera)
       {
          int change_X = mouse_X - e.x;
          int change_Y = mouse_Y - e.y;
-         printf("x: %d\ny: %d\n", change_X, change_Y);
          camera_X += change_X / 50;
          camera_Y += change_Y / 50;
       }
