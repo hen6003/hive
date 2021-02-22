@@ -2,13 +2,15 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
-#include <cairo/cairo.h>
 #include <cairo/cairo-xlib.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+
+#include "render.h"
+#include "window.h"
 
 enum tile_types
 {
@@ -28,189 +30,21 @@ enum states
    menu_quit,
 };
 
-struct colour 
+// returns amount of surrounding hexs of type none
+int check_surrounding_hexs(int x, int y, enum tile_types tiles[20][20])
 {
-   double r,g,b;
-};
+   int num_hexs_filled = 0;
 
-struct event
-{
-   int type, x, y, press;
-};
-
-int width, height, radius;
-int camera_X, camera_Y;
-
-struct event cairo_check_event(cairo_surface_t *sfc, int block)
-{
-   char keybuf[8];
-   KeySym key;
-   XEvent e;
-   Display *dsp;
-   struct event r_e;
-   int mouse_X, mouse_Y;
-   
-   unsigned m;
-   Window w, r;
-   int i;
-
-   dsp = cairo_xlib_surface_get_display(sfc);
-
-   for (;;)
-   {
-      if (block || XPending(dsp))
-         XNextEvent(dsp, &e);
-      else 
-         r_e.type = 0;
-
-      switch (e.type)
+   for (int i = 0; i < 3; i++)
+      for (int a = 0; a < 3; a++)
       {
-         case ButtonPress:
-            r_e.type = -e.xbutton.button;
-            r_e.x = e.xbutton.x;
-            r_e.y = e.xbutton.y;
-            r_e.press = 1;
-            // printf("%d\n", -e.xbutton.button);
-            break;
-         
-         case ButtonRelease:
-            r_e.type = -e.xbutton.button;
-            r_e.x = e.xbutton.x;
-            r_e.y = e.xbutton.y;
-            r_e.press = 0;
-            break;
-
-         case KeyPress:
-            XLookupString(&e.xkey, keybuf, sizeof(keybuf), &key, NULL);
-            r_e.type = key;
-            r_e.press = 1;
-         default:
-            XQueryPointer(dsp, cairo_xlib_surface_get_drawable(sfc), &r,
-               &w, &i, &i, &mouse_X, &mouse_Y, &m);
-
-            // printf("%d x %d\n", mouse_X, mouse_Y);
-            
-            r_e.x = mouse_X;
-            r_e.y = mouse_Y;
+         if (i != 1 && a == 0)
+            continue;
+         if (tiles[x-1+i][y-1+a])
+            num_hexs_filled++;
       }
-
-      return r_e;
-   }
-}
-
-// static void fullscreen(Display* dpy, Window win)
-// {
-//    Atom atoms[2] = { XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False), None };
-//    XChangeProperty(dpy, win, XInternAtom(dpy, "_NET_WM_STATE", False),
-//                   XA_ATOM, 32, PropModeReplace, (unsigned char*) atoms, 1);
-// }
-
-cairo_surface_t *cairo_create_x11_surface(int *x, int *y)
-{
-   Display *dsp;
-   Drawable da;
-   Screen *scr;
-   int screen;
-   cairo_surface_t *sfc;
-
-   if ((dsp = XOpenDisplay(NULL)) == NULL)
-      exit(1);
-   screen = DefaultScreen(dsp);
-   scr = DefaultScreenOfDisplay(dsp);
-   if (!*x || !*y)
-   {
-      *x = WidthOfScreen(scr), *y = HeightOfScreen(scr);
-      *x = 1500;
-      *y = 1000;
-      da = XCreateSimpleWindow(dsp, DefaultRootWindow(dsp), 0, 0, *x, *y, 0, 0, 0);
-      // fullscreen (dsp, da);
-   }
-   else
-      da = XCreateSimpleWindow(dsp, DefaultRootWindow(dsp), 0, 0, *x, *y, 0, 0, 0);
-   XSelectInput(dsp, da, ButtonPressMask | ButtonReleaseMask | KeyPressMask);
-   XMapWindow(dsp, da);
-
-   sfc = cairo_xlib_surface_create(dsp, da, DefaultVisual(dsp, screen), *x, *y);
-   cairo_xlib_surface_set_size(sfc, *x, *y);
-
-   return sfc;
-}
-
-void cairo_close_x11_surface(cairo_surface_t *sfc)
-{
-   Display *dsp = cairo_xlib_surface_get_display(sfc);
-
-   cairo_surface_destroy(sfc);
-   XCloseDisplay(dsp);
-}
-
-void render_hex(cairo_t *ctx, int centerX, int centerY, int radius)
-{
-   const int nsides = 6;
-   float angle = 0.0f;
-   float incr = 2.0 * M_PI / nsides;
-
-   int newX = radius * cos(angle) + centerX;
-   int newY = radius * sin(angle) + centerY;
-
-   cairo_move_to(ctx, newX, newY);
-
-   for (int i = 0; i < nsides+1; i++) {
-      angle += incr;
-      newX = radius * cos(angle) + centerX;
-      newY = radius * sin(angle) + centerY;
-     
-      cairo_line_to(ctx, newX, newY);
-   }
-}
-
-void render_hex_by_index(cairo_t *ctx, int indexX, int indexY)
-{
-   int offsetX = indexX * 150;
-   int offsetY = indexY * 173;
-   // int offsetX = indexX * (radius + radius/2);
-   // int offsetY = indexY * (radius/4*3-radius/(radius/2));
    
-   if ( abs(indexX) % 2 == 1 )
-      offsetY += 86;
-   
-   render_hex(ctx, width / 2 + offsetX + camera_X, height / 2 + offsetY + camera_Y, radius);
-}
-
-void render_menu_bg(cairo_t *ctx)
-{
-   cairo_rectangle(ctx, 0, height - height / 4, width, height);
-   cairo_set_source_rgb(ctx, 0.8, 0.8, 0.8);
-   cairo_fill_preserve(ctx);
-   cairo_stroke(ctx);
-
-   cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
-   cairo_move_to(ctx, 0, height - height / 4);
-   cairo_line_to(ctx, width, height - height / 4);
-   cairo_stroke(ctx);
-   
-   cairo_move_to(ctx, 0, height - height / 4);
-}
-
-void render_menu_hex(cairo_t *ctx, int amount, unsigned int selected, struct colour *colours)
-{
-   int gap = radius + 10;
-   int center_screen = (width / 2) - ((amount-1) * gap);
-
-   for (int i = 0; i < amount; i++)
-   {
-      render_hex(ctx, center_screen + (i * gap * 2), height - height / 8, radius);
-
-      struct colour current_colour = colours[i];
-      cairo_set_source_rgb(ctx, current_colour.r, current_colour.g, current_colour.b);
-      cairo_fill_preserve(ctx);
-
-      if (i == selected)
-         cairo_set_source_rgb(ctx, 0.3, 0.3, 0.3);
-      else
-         cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
-      cairo_stroke(ctx);
-   }
+   return num_hexs_filled;
 }
 
 int main(int argc, char **argv)
@@ -372,7 +206,7 @@ int main(int argc, char **argv)
             cur_Y++;
             break;
 
-         case 0xff0d:
+         case 0xff0d: // Return
             if (cur_state == menu_tile_type)
             {
                tiles[cur_X+MAX_SIZE/2][cur_Y+MAX_SIZE/2] = cur_menu_pos+1;
@@ -389,6 +223,8 @@ int main(int argc, char **argv)
             {
                if (tiles[cur_X+MAX_SIZE/2][cur_Y+MAX_SIZE/2] != none)
                   break;
+               if (!check_surrounding_hexs(cur_X+MAX_SIZE/2, cur_Y+MAX_SIZE/2, tiles))
+                  break;
                   
                cur_menu_pos = 2;
                max_menu_pos = 5;
@@ -402,13 +238,18 @@ int main(int argc, char **argv)
             break;
 
          case 0xff1b:   // Esc
-            cur_menu_pos = 0;
-            max_menu_pos = 2;
-            if (cur_state == menu_tile_type || cur_state == menu_quit)
+            if (cur_state == menu_tile_type)
+            {
+               if (cur_X != 0 || cur_Y != 0)
+                  cur_state = selecting_tile;
+            }
+            else if (cur_state == menu_quit)
                cur_state = selecting_tile;
             else
             {
                cur_state = menu_quit;
+               cur_menu_pos = 0;
+               max_menu_pos = 2;
                menu_hex_colours[0].r = menu_hex_colours[0].g = menu_hex_colours[0].b = 0.7;
                menu_hex_colours[1].r = 1;
                menu_hex_colours[1].g = menu_hex_colours[1].g = 0;
