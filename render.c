@@ -40,7 +40,7 @@ void render_menu_bg(cairo_t *ctx)
    cairo_move_to(ctx, 0, height - height / 4);
 }
 
-void render_menu_hex(cairo_t *ctx, int amount, unsigned int selected, struct colour *colours)
+void render_menu_hex(cairo_t *ctx, int amount, unsigned int selected, struct color *colors)
 {
    int gap = radius + 10;
    int center_screen = (width / 2) - ((amount-1) * gap);
@@ -49,8 +49,8 @@ void render_menu_hex(cairo_t *ctx, int amount, unsigned int selected, struct col
    {
       render_hex(ctx, center_screen + (i * gap * 2), height - height / 8, radius);
 
-      struct colour current_colour = colours[i];
-      cairo_set_source_rgb(ctx, current_colour.r, current_colour.g, current_colour.b);
+      struct color current_color = colors[i];
+      cairo_set_source_rgb(ctx, current_color.r, current_color.g, current_color.b);
       cairo_fill_preserve(ctx);
 
       if (i == selected)

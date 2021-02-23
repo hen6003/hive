@@ -64,35 +64,35 @@ int main(int argc, char **argv)
    camera_X = camera_Y = mouse_X = mouse_Y = moving_camera = 0;
    unsigned int cur_menu_pos, max_menu_pos;
    radius = 100;
-   struct colour menu_hex_colours[5];
-   struct colour colour_none;
-   struct colour colour_bee;
-   struct colour colour_spider;
-   struct colour colour_beetle;
-   struct colour colour_grasshopper;
-   struct colour colour_ant;
-   struct colour colour_current_hex;
+   struct color menu_hex_colors[5];
+   struct color color_none;
+   struct color color_bee;
+   struct color color_spider;
+   struct color color_beetle;
+   struct color color_grasshopper;
+   struct color color_ant;
+   struct color color_current_hex;
 
-   colour_none.r = colour_none.g = colour_none.b = 0.9;
-   colour_bee.r = colour_bee.g = 1;
-   colour_bee.b = 0;
-   colour_spider.r = 0.7;
-   colour_spider.g = 0.5;
-   colour_spider.b = 0;
-   colour_beetle.r = colour_beetle.b = 1;
-   colour_beetle.g = 0;
-   colour_grasshopper.r = colour_grasshopper.b = 0;
-   colour_grasshopper.g = 1;
-   colour_ant.r = colour_ant.g = 0;
-   colour_ant.b = 1;
+   color_none.r = color_none.g = color_none.b = 0.9;
+   color_bee.r = color_bee.g = 1;
+   color_bee.b = 0;
+   color_spider.r = 0.7;
+   color_spider.g = 0.5;
+   color_spider.b = 0;
+   color_beetle.r = color_beetle.b = 1;
+   color_beetle.g = 0;
+   color_grasshopper.r = color_grasshopper.b = 0;
+   color_grasshopper.g = 1;
+   color_ant.r = color_ant.g = 0;
+   color_ant.b = 1;
    
    cur_menu_pos = 2;
    max_menu_pos = 5;
-   menu_hex_colours[0] = colour_bee;
-   menu_hex_colours[1] = colour_spider;
-   menu_hex_colours[2] = colour_beetle;
-   menu_hex_colours[3] = colour_grasshopper;
-   menu_hex_colours[4] = colour_ant;
+   menu_hex_colors[0] = color_bee;
+   menu_hex_colors[1] = color_spider;
+   menu_hex_colors[2] = color_beetle;
+   menu_hex_colors[3] = color_grasshopper;
+   menu_hex_colors[4] = color_ant;
 
    cur_X = cur_Y = 0;
    x = y = 0;
@@ -123,27 +123,27 @@ int main(int argc, char **argv)
             switch (tiles[x][y])
             {
                case none:
-                  colour_current_hex = colour_none;
+                  color_current_hex = color_none;
                   break;
                case bee:
-                  colour_current_hex = colour_bee;
+                  color_current_hex = color_bee;
                   break;
                case spider:
-                  colour_current_hex = colour_spider;
+                  color_current_hex = color_spider;
                   break;
                case beetle:
-                  colour_current_hex = colour_beetle;
+                  color_current_hex = color_beetle;
                   break;
                case grasshopper:
-                  colour_current_hex = colour_grasshopper;
+                  color_current_hex = color_grasshopper;
                   break;
                case ant:
-                  colour_current_hex = colour_ant;
+                  color_current_hex = color_ant;
                   break;
             }
 
             render_hex_by_index(ctx, x-MAX_SIZE/2, y-MAX_SIZE/2);
-            cairo_set_source_rgb(ctx, colour_current_hex.r, colour_current_hex.g, colour_current_hex.b);
+            cairo_set_source_rgb(ctx, color_current_hex.r, color_current_hex.g, color_current_hex.b);
             cairo_fill_preserve(ctx);
             cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
             cairo_stroke(ctx);
@@ -157,7 +157,7 @@ int main(int argc, char **argv)
       if (cur_state != selecting_tile)
       {
          render_menu_bg(ctx);
-         render_menu_hex(ctx, max_menu_pos, cur_menu_pos, menu_hex_colours);
+         render_menu_hex(ctx, max_menu_pos, cur_menu_pos, menu_hex_colors);
       }
 
       sprintf(debug_text, "%d x %d", cur_X, cur_Y);
@@ -228,11 +228,11 @@ int main(int argc, char **argv)
                   
                cur_menu_pos = 2;
                max_menu_pos = 5;
-               menu_hex_colours[0] = colour_bee;
-               menu_hex_colours[1] = colour_spider;
-               menu_hex_colours[2] = colour_beetle;
-               menu_hex_colours[3] = colour_grasshopper;
-               menu_hex_colours[4] = colour_ant;
+               menu_hex_colors[0] = color_bee;
+               menu_hex_colors[1] = color_spider;
+               menu_hex_colors[2] = color_beetle;
+               menu_hex_colors[3] = color_grasshopper;
+               menu_hex_colors[4] = color_ant;
                cur_state = menu_tile_type;
             }
             break;
@@ -250,9 +250,9 @@ int main(int argc, char **argv)
                cur_state = menu_quit;
                cur_menu_pos = 0;
                max_menu_pos = 2;
-               menu_hex_colours[0].r = menu_hex_colours[0].g = menu_hex_colours[0].b = 0.7;
-               menu_hex_colours[1].r = 1;
-               menu_hex_colours[1].g = menu_hex_colours[1].g = 0;
+               menu_hex_colors[0].r = menu_hex_colors[0].g = menu_hex_colors[0].b = 0.7;
+               menu_hex_colors[1].r = 1;
+               menu_hex_colors[1].g = menu_hex_colors[1].g = 0;
             }
             break;
 
