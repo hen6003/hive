@@ -30,19 +30,94 @@ enum states
    menu_quit,
 };
 
+int get_tile(int x, int y, enum tile_types tiles[20][20])
+{
+   printf("%d x %d\n", x, y);
+   return tiles[x+20/2][y+20/2];
+}
 // returns amount of surrounding hexs of type none
-int check_surrounding_hexs(int x, int y, enum tile_types tiles[20][20])
+int check_surrounding_hexs(cairo_t *ctx, int x, int y, enum tile_types tiles[20][20])
 {
    int num_hexs_filled = 0;
 
-   for (int i = 0; i < 3; i++)
-      for (int a = 0; a < 3; a++)
-      {
-         if (i != 1 && a == 0)
-            continue;
-         if (tiles[x-1+i][y-1+a])
-            num_hexs_filled++;
-      }
+   if (get_tile(x, y+1, tiles))
+      num_hexs_filled++;
+   if (get_tile(x, y-1, tiles))
+      num_hexs_filled++;
+   if (get_tile(x+1, y, tiles))
+      num_hexs_filled++;
+   if (get_tile(x-1, y, tiles))
+      num_hexs_filled++;
+   
+   if (abs(x) % 2 == 1)
+   {
+      if (get_tile(x+1, y+1, tiles))
+         num_hexs_filled++;
+      if (get_tile(x-1, y+1, tiles))
+         num_hexs_filled++;
+   }                               
+   else                            
+   {                               
+      if (get_tile(x+1, y-1, tiles))
+         num_hexs_filled++;
+      if (get_tile(x-1, y-1, tiles))
+         num_hexs_filled++;
+   }
+
+   printf("%d\n", num_hexs_filled);
+   
+   return num_hexs_filled;
+}
+
+void draw_hex_with_colour(cairo_t *ctx, int x, int y, struct colour c)
+{
+   render_hex_by_index(ctx, x, y);
+   cairo_set_source_rgb(ctx, 10, 10, 10);
+   cairo_fill_preserve(ctx);
+
+   char debug_text[20];
+   sprintf(debug_text, "%d x %d", x, y);
+   render_text_to_screen(ctx, debug_text);
+}
+
+// returns amount of surrounding hexs of type none
+int draw_surrounding_hexs(cairo_t *ctx,int x, int y, enum tile_types tiles[20][20])
+{
+   int num_hexs_filled = 0;
+
+   struct colour c;
+   c.r = c.g = c.b = 0.1;
+
+   draw_hex_with_colour(ctx, x, y+1, c);
+   draw_hex_with_colour(ctx, x, y-1, c);
+
+   draw_hex_with_colour(ctx, x+1, y, c);
+   draw_hex_with_colour(ctx, x-1, y, c);
+   
+   if (abs(x) % 2 == 1)
+   {
+      draw_hex_with_colour(ctx, x+1, y+1, c);
+      draw_hex_with_colour(ctx, x-1, y+1, c);
+   }
+   else
+   {
+      draw_hex_with_colour(ctx, x+1, y-1, c);
+      draw_hex_with_colour(ctx, x-1, y-1, c);
+   }
+
+   // if (tiles[x+1][y+1])
+   //    num_hexs_filled++;
+   // if (tiles[x-1][y+1])
+   //    num_hexs_filled++;
+
+   // if (tiles[x+1][y-1])
+   //    num_hexs_filled++;
+   // if (tiles[x-1][y-1])
+   //    num_hexs_filled++;
+   // if (tiles[x][y-1])
+   //    num_hexs_filled++;
+   // if (tiles[x-1][y])
+   //    num_hexs_filled++;
    
    return num_hexs_filled;
 }
@@ -116,6 +191,7 @@ int main(int argc, char **argv)
       cairo_set_line_width(ctx, 5);
       cairo_set_source_rgb(ctx, 0.2, 0.2, 0.2);
       cairo_paint(ctx);
+      text_output_y = 10;
 
       for (int x = 0; x < MAX_SIZE; ++x)
          for (int y = 0; y < MAX_SIZE; ++y)
@@ -161,9 +237,9 @@ int main(int argc, char **argv)
       }
 
       sprintf(debug_text, "%d x %d", cur_X, cur_Y);
-      cairo_move_to(ctx, 2, 10);
-      cairo_set_source_rgb(ctx, 1, 0, 0);
-      cairo_show_text(ctx, debug_text);
+      render_text_to_screen(ctx, debug_text);
+
+      // draw_surrounding_hexs(ctx, cur_X, cur_Y, tiles);
 
       cairo_pop_group_to_source(ctx);
       cairo_paint(ctx);
@@ -221,9 +297,9 @@ int main(int argc, char **argv)
             }
             else
             {
-               if (tiles[cur_X+MAX_SIZE/2][cur_Y+MAX_SIZE/2] != none)
+               if (get_tile(cur_X, cur_Y, tiles) != none)
                   break;
-               if (!check_surrounding_hexs(cur_X+MAX_SIZE/2, cur_Y+MAX_SIZE/2, tiles))
+               if (!check_surrounding_hexs(ctx, cur_X, cur_Y, tiles))
                   break;
                   
                cur_menu_pos = 2;

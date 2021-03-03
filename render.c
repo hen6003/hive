@@ -1,9 +1,11 @@
+#include <cairo/cairo.h>
 #include <math.h>
 #include <stdlib.h>
 #include "render.h"
 
 int width, height, radius;
 int camera_X, camera_Y;
+int text_output_y;
 
 void render_hex(cairo_t *ctx, int centerX, int centerY, int radius)
 {
@@ -63,13 +65,22 @@ void render_menu_hex(cairo_t *ctx, int amount, unsigned int selected, struct col
 
 void render_hex_by_index(cairo_t *ctx, int indexX, int indexY)
 {
-   int offsetX = indexX * 150;
-   int offsetY = indexY * 173;
-   // int offsetX = indexX * (radius + radius/2);
-   // int offsetY = indexY * (radius/4*3-radius/(radius/2));
+   // int offsetX = indexX * 150;
+   // int offsetY = indexY * 173;
+   int offsetX = indexX * (radius + radius/2);
+   int offsetY = indexY * (radius/4*3-radius/(radius/2) + radius);
    
    if ( abs(indexX) % 2 == 1 )
       offsetY += 86;
    
    render_hex(ctx, width / 2 + offsetX + camera_X, height / 2 + offsetY + camera_Y, radius);
+}
+
+void render_text_to_screen(cairo_t *ctx, char *str)
+{
+   cairo_move_to(ctx, 2, text_output_y);
+   cairo_set_source_rgb(ctx, 1, 0, 0);
+   cairo_show_text(ctx, str);
+
+   text_output_y += 10;
 }
