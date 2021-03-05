@@ -82,7 +82,7 @@ void draw_hex_with_colour(cairo_t *ctx, int x, int y, struct color c)
    render_text_to_screen(ctx, debug_text);
 }
 
-// returns amount of surrounding hexs of type none
+// here for debug purposes
 int draw_surrounding_hexs(cairo_t *ctx,int x, int y, enum tile_types tiles[MAX_SIZE][MAX_SIZE])
 {
    int num_hexs_filled = 0;
@@ -106,20 +106,6 @@ int draw_surrounding_hexs(cairo_t *ctx,int x, int y, enum tile_types tiles[MAX_S
       draw_hex_with_colour(ctx, x+1, y-1, c);
       draw_hex_with_colour(ctx, x-1, y-1, c);
    }
-
-   // if (tiles[x+1][y+1])
-   //    num_hexs_filled++;
-   // if (tiles[x-1][y+1])
-   //    num_hexs_filled++;
-
-   // if (tiles[x+1][y-1])
-   //    num_hexs_filled++;
-   // if (tiles[x-1][y-1])
-   //    num_hexs_filled++;
-   // if (tiles[x][y-1])
-   //    num_hexs_filled++;
-   // if (tiles[x-1][y])
-   //    num_hexs_filled++;
    
    return num_hexs_filled;
 }

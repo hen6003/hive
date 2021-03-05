@@ -94,6 +94,7 @@ cairo_surface_t *cairo_create_x11_surface(int *x, int *y)
    }
    else
       da = XCreateSimpleWindow(dsp, DefaultRootWindow(dsp), 0, 0, *x, *y, 0, 0, 0);
+
    XSelectInput(dsp, da, ButtonPressMask | ButtonReleaseMask | KeyPressMask);
    XMapWindow(dsp, da);
 
