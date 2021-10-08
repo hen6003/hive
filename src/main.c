@@ -19,7 +19,8 @@ enum gameStates
 
 static Tile **board;
 
-VectorTile Board_Size = {25,25};
+VectorTile Board_Size = {10,10};
+bool OffsetInitialRow = false;
 
 void DrawHexGrid(VectorTile gridPos, bool filled, int lineThickness, Color color)
 {
@@ -29,7 +30,7 @@ void DrawHexGrid(VectorTile gridPos, bool filled, int lineThickness, Color color
 	realPos.x = gridPos.x * (size * 1.66);
 	realPos.y = gridPos.y * (size * 1.434);
 
-	if (fmod(abs(gridPos.y), 2) == 1)
+	if (abs(gridPos.y) % 2 == !OffsetInitialRow)
 		realPos.x += size * HEX_OFFSET;
 
 	if (filled)
@@ -47,7 +48,7 @@ void DrawTextureGrid(VectorTile gridPos, Texture texture)
 	realPos.x = gridPos.x * (size * 1.66);
 	realPos.y = gridPos.y * (size * 1.434);
 
-	if (fmod(abs(gridPos.y), 2) == 1)
+	if (abs(gridPos.y) % 2 == !OffsetInitialRow)
 		realPos.x += size * HEX_OFFSET;
 
 	realPos.x -= ((texture.width	* scale)/2);
@@ -58,8 +59,8 @@ void DrawTextureGrid(VectorTile gridPos, Texture texture)
 
 void DrawBoard(VectorTile selectedHex, enum gameStates gameState)
 {
-	for (int x = 0; x < Board_Size.y; x++)
-		for (int y = 0; y < Board_Size.x; y++)
+	for (int x = 0; x < Board_Size.x; x++)
+		for (int y = 0; y < Board_Size.y; y++)
 		{
 			switch (board[x][y].player)
 			{
@@ -154,36 +155,37 @@ void EdgeDetection(Camera2D *camera)
 
 	if (found0y)
 	{
+		OffsetInitialRow = !OffsetInitialRow;
 		for (int x = Board_Size.x-1; x >= 0; x--)
 			for (int y = Board_Size.y-1; y >= 0; y--)
 			{
-				if (y-2 < 0)
+				if (y-1 < 0)
 					board[x][y] = (Tile) {None, Player_None};
-				else if (board[x][y-2].type != None)
+				else if (board[x][y-1].type != None)
 				{
-					board[x][y] = board[x][y-2];
-					board[x][y-2] = (Tile) {None, Player_None};
+					board[x][y] = board[x][y-1];
+					board[x][y-1] = (Tile) {None, Player_None};
 				}
 			}
 		camera->offset.y -= 287 * camera->zoom;
 	}
 
-	if (foundyy)
+	if (foundxx)
 	{
 		Board_Size.y++;
 		
 		int y = Board_Size.y-1;
 		{
-			board[y] = MemAlloc((int) Board_Size.y * sizeof(Tile));
 			for (int x = 0; x < Board_Size.x; x++)
 			{
+				board[x] = MemRealloc(board[x], (int) Board_Size.y * sizeof(Tile));
 				board[x][y].type = None;
 				board[x][y].player = Player_None;
 			}
 		}
 	}
 	
-	if (foundxx)
+	if (foundyy)
 	{
 		Board_Size.x++;
 
@@ -200,20 +202,6 @@ void EdgeDetection(Camera2D *camera)
 		}
 	}
 }
-
-/*
-	board = MemAlloc((int) Board_Size.x * sizeof(Tile *));
-
-	for (int x = 0; x < Board_Size.x; x++)
-	{
-		board[x] = MemAlloc((int) Board_Size.y * sizeof(Tile));
-		for (int y = 0; y < Board_Size.y; y++)
-		{
-			board[x][y].type = None;
-			board[x][y].player = Player_None;
-		}
-	}
-*/
 
 int main(int argc, char **argv)
 {
@@ -350,7 +338,12 @@ int main(int argc, char **argv)
 		Vector2 relativeMousePos = GetScreenToWorld2D(mousePos, camera);
 
 		if (gameState != TILE_MENU)
-			selectedHex = GetCollisionHexGrid(relativeMousePos);
+		{
+			if (IsCursorOnScreen())
+				selectedHex = GetCollisionHexGrid(relativeMousePos);
+			else
+				selectedHex = (VectorTile) {-1, -1};
+		}
 		else
 		{
 			bool found = false;
